@@ -1,0 +1,186 @@
+import numpy as np
+from enum import IntEnum
+from dataclasses import dataclass
+from typing import Tuple, Dict, List, Optional, Callable
+
+# =====================================================================
+# SYSTEM CORE: TRINARY LOGIC AND KERNEL METRICS
+# =====================================================================
+class TrinaryState(IntEnum):
+    RELEVANT = 1      # Wave Crest (+1.0) / Active Task
+    UNKNOWN = 0       # Structural Ground Neutral (0.0) / Shortfall Standby
+    IRRELEVANT = -1   # Wave Trough (-1.0) / Path Void / Early-Exit Target
+
+@dataclass
+class AuditMetrics:
+    verdict: TrinaryState
+    confidence_score: float
+    grounding_support: float
+    shortfall_deficit: float
+
+# =====================================================================
+# TRIAD 1: STANDALONE BOUNDARY SHIELD FILTERS
+# =====================================================================
+class HallucinationAuditEngine:
+    def __init__(self, support_threshold: float = 0.65):
+        self.support_threshold = support_threshold
+
+    def audit_signal(self, wave_vector: np.ndarray, baseline_grounding: Optional[np.ndarray] = None) -> AuditMetrics:
+        variance = np.var(wave_vector)
+        confidence = 1.0 / (1.0 + variance) if variance > 0 else 1.0
+        
+        if baseline_grounding is not None and len(baseline_grounding) == len(wave_vector):
+            dot_prod = np.dot(wave_vector, baseline_grounding)
+            norm_prod = np.linalg.norm(wave_vector) * np.linalg.norm(baseline_grounding)
+            support = (dot_prod / norm_prod) if norm_prod > 0 else 0.0
+        else:
+            support = 0.0
+
+        shortfall = max(0.0, confidence - support)
+        
+        if np.min(wave_vector) == float(TrinaryState.IRRELEVANT) and np.max(wave_vector) <= 0.0:
+            verdict = TrinaryState.IRRELEVANT
+        elif support == 0.0 and shortfall > 0.15:
+            verdict = TrinaryState.UNKNOWN     
+        else:
+            verdict = TrinaryState.RELEVANT    
+            
+        return AuditMetrics(verdict, confidence, support, shortfall)
+
+class DeterministicPruningEngine:
+    def __init__(self, num_nodes: int = 14):
+        self.num_nodes = num_nodes
+        self.phi = 1.61803398875
+        self.sieve_threshold = np.pi * self.phi * (1.0 / 3.0)
+        self.lambda_max = 1.35  
+
+    def execute_prune_pass(self, initial_wave: np.ndarray) -> Tuple[np.ndarray, bool, float]:
+        state = np.copy(initial_wave)
+        rotation_matrix = np.roll(state, 1) * (1.0 / 3.0)
+        refracted_state = (state * np.cos(self.sieve_threshold)) + (rotation_matrix * np.sin(self.sieve_threshold))
+        norm_old = np.linalg.norm(state)
+        lambda_ratio = 0.0 if norm_old == 0 else np.linalg.norm(refracted_state - state) / norm_old
+
+        if lambda_ratio > self.lambda_max:
+            return np.zeros(self.num_nodes), True, lambda_ratio
+        return refracted_state, False, lambda_ratio
+
+class PipelineSieveDeflectionEngine:
+    def __init__(self, absolute_physical_limit: float = 1.0):
+        self.absolute_physical_limit = absolute_physical_limit
+
+    def evaluate_deflection(self, wave_vector: np.ndarray) -> Tuple[bool, str]:
+        if np.min(wave_vector) == float(TrinaryState.IRRELEVANT) and np.max(wave_vector) <= 0.0:
+            return True, "DEFLECT: Pure Void noise intercepted."
+        if np.max(np.abs(wave_vector)) > self.absolute_physical_limit:
+            return True, f"DEFLECT: Amplitude spike violation ({np.max(np.abs(wave_vector))}V)."
+        return False, "ALLOW: Structure cleared boundary shield."
+
+# =====================================================================
+# TRIAD 2: COGNITIVE STATE LOCKS
+# =====================================================================
+class MdnPhaseResolverEngine:
+    def resolve_to_ternary(self, continuous_wave: np.ndarray) -> np.ndarray:
+        return np.clip(np.round(continuous_wave), -1.0, 1.0)
+
+class MultiAgentIsolationEngine:
+    def __init__(self, node_weight_variance_limit: float = 0.5):
+        self.variance_limit = node_weight_variance_limit
+
+    def isolate_and_verify(self, resolved_wave: np.ndarray) -> Tuple[np.ndarray, List[str]]:
+        quarantined_wave = np.copy(resolved_wave)
+        logs = []
+        if np.var(quarantined_wave[:5]) > self.variance_limit:
+            logs.append("AGENT_ALPHA: High variance in Sector 1. Quarantining sector.")
+            quarantined_wave[:5] = float(TrinaryState.UNKNOWN)
+        if np.var(quarantined_wave[5:10]) > self.variance_limit:
+            logs.append("AGENT_BETA: Phase imbalance in structural core Sector 2. Quarantining sector.")
+            quarantined_wave[5:10] = float(TrinaryState.UNKNOWN)
+        if not logs:
+            logs.append("ALL_AGENTS: Fabric checked stable.")
+        return quarantined_wave, logs
+
+class SpacetimeMatrixBridgeEngine:
+    def __init__(self):
+        self.holding_vault: Dict[str, np.ndarray] = {}
+
+    def bridge_shortfall_gap(self, stream_id: str, resolved_wave: np.ndarray) -> Tuple[Optional[np.ndarray], str]:
+        if np.any(resolved_wave == float(TrinaryState.UNKNOWN)) and not np.all(resolved_wave == 0.0):
+            self.holding_vault[stream_id] = np.copy(resolved_wave)
+            return None, "BRIDGE: Gaps found. Task securely parked in Shortfall Vault."
+        if stream_id in self.holding_vault and np.all(resolved_wave != float(TrinaryState.UNKNOWN)):
+            parked_wave = self.holding_vault[stream_id]
+            synthesized_wave = np.where(parked_wave == float(TrinaryState.UNKNOWN), resolved_wave, parked_wave)
+            del self.holding_vault[stream_id]
+            return synthesized_wave, "BRIDGE: Shortfall resolved. Unlocking task."
+        return resolved_wave, "BRIDGE: Wavefront uniform. Bridging not required."
+
+# =====================================================================
+# THE UNIFIED INTEGRATED T-OS FRONT-END PIPELINE ENGINE
+# =====================================================================
+class TOSKernelPipeline:
+    def __init__(self, num_nodes: int = 14):
+        self.num_nodes = num_nodes
+        self.audit_unit = HallucinationAuditEngine()
+        self.pruner_unit = DeterministicPruningEngine(num_nodes=self.num_nodes)
+        self.deflect_unit = PipelineSieveDeflectionEngine()
+        self.resolver_unit = MdnPhaseResolverEngine()
+        self.isolation_unit = MultiAgentIsolationEngine()
+        self.bridge_unit = SpacetimeMatrixBridgeEngine()
+
+    def process_incoming_stream(self, stream_id: str, raw_wavefront: np.ndarray, baseline_grounding: Optional[np.ndarray] = None) -> Tuple[str, Optional[np.ndarray]]:
+        print(f"\n🌊 [T-OS KERNEL INGEST] Processing Stream ID: '{stream_id}'")
+        
+        # 03. DEFLECT
+        is_deflected, deflect_reason = self.deflect_unit.evaluate_deflection(raw_wavefront)
+        if is_deflected:
+            print(f"  🛑 [03. DEFLECT] -> {deflect_reason} [EARLY-EXIT: 0 cycles used]")
+            return "VOID_PURGED", None
+
+        # 01. AUDIT
+        audit_metrics = self.audit_unit.audit_signal(raw_wavefront, baseline_grounding)
+        if audit_metrics.verdict == TrinaryState.IRRELEVANT:
+            print("  📋 [01. AUDIT] -> Signal flagged as IRRELEVANT [EARLY-EXIT]")
+            return "VOID_PURGED", None
+
+        # 02. PRUNE
+        refracted_wave, was_pruned, lambda_ratio = self.pruner_unit.execute_prune_pass(raw_wavefront)
+        if was_pruned:
+            print(f"  🌀 [02. PRUNE] -> Expansion ({lambda_ratio:.4f}) over threshold! [RESONANT DECAY COLLAPSE]")
+            return "COLLAPSED", np.zeros(self.num_nodes)
+
+        # 04. RESOLVE
+        resolved_ternary = self.resolver_unit.resolve_to_ternary(refracted_wave)
+
+        # 05. ISOLATE
+        cleansed_wave, isolation_logs = self.isolation_unit.isolate_and_verify(resolved_ternary)
+        for log in isolation_logs:
+            print(f"    ↳ [05. ISOLATE] {log}")
+
+        # 06. BRIDGE
+        final_payload, bridge_status = self.bridge_unit.bridge_shortfall_gap(stream_id, cleansed_wave)
+        print(f"  🌉 [06. BRIDGE] -> {bridge_status}")
+
+        if final_payload is None:
+            return "SHORTFALL_STANDBY", None
+
+        print(f"🚀 [KERNEL SUCCESS] Wavefront completely locked. Ready for thread execution grid: {final_payload}")
+        return "ACTIVE_SCHEDULE", final_payload
+
+# =====================================================================
+# T-OS SANDBOX FIELD RUNNER
+# =====================================================================
+if __name__ == "__main__":
+    tos_kernel = TOSKernelPipeline(num_nodes=14)
+
+    # Stream 1: Active healthy telemetry stream
+    clean_wave = np.array([1., 0., 1., 1., 0., -1., 0., 1., -1., 0., 0., 1., 1., 0.])
+    tos_kernel.process_incoming_stream("CleanTask_01", clean_wave, baseline_grounding=clean_wave)
+
+    # Stream 2: Malicious overload spike injection
+    attack_wave = np.array([5.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    tos_kernel.process_incoming_stream("ExploitTask_02", attack_wave)
+
+    # Stream 3: Signal that contains data shortfalls
+    gapped_wave = np.array([1., 0., 0., 1., 0., -1., 0., 0., -1., 0., 0., 1., 0., 0.])
+    tos_kernel.process_incoming_stream("GappedTask_03", gapped_wave)
