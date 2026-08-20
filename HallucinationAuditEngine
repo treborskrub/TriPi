@@ -1,0 +1,72 @@
+import numpy as np
+from enum import IntEnum
+from dataclasses import dataclass
+from typing import List, Optional
+
+# Define your Trinary States using an IntEnum for clean math
+class TrinaryState(IntEnum):
+    RELEVANT = 1
+    UNKNOWN = 0
+    IRRELEVANT = -1
+
+@dataclass
+class EvidenceQuantum:
+    claim_fragment: str
+    support_score: float  # 0.0 to 1.0
+    source: str
+    confidence: float
+
+class TrinaryAuditRouter:
+    """
+    Optimizes the Hallucination Audit Engine using Trinary Logic
+    and Early-Exit Routing.
+    """
+    @staticmethod
+    def evaluate_relevance(claim: str, evidence: Optional[List[EvidenceQuantum]]) -> TrinaryState:
+        words = claim.lower().split()
+        
+        # 1. Check for completely Irrelevant / conversational fluff strings (Dead Ends)
+        conversational_fluff = {"hello", "hi", "hey", "thanks", "thank you", "sorry", "welcome"}
+        if len(words) < 4 or (set(words) & conversational_fluff):
+            return TrinaryState.IRRELEVANT
+            
+        # 2. Check if it's Relevant (Active payload with matching evidence)
+        if evidence and len(evidence) > 0:
+            return TrinaryState.RELEVANT
+            
+        # 3. Otherwise, it's an assertion lacking data (Unknown state)
+        return TrinaryState.UNKNOWN
+
+    def audit_response_stream(self, engine, claims_list: List[str], evidence_map: dict):
+        """
+        Processes a series of claims using strict AND filtering via min().
+        If any step yields IRRELEVANT, it early-exits the pipeline.
+        """
+        print("Starting Trinary Gated Audit Pipeline...")
+        accumulated_logic = TrinaryState.RELEVANT  # Start at ideal path
+
+        for i, claim in enumerate(claims_list):
+            evidence = evidence_map.get(claim, None)
+            
+            # Get the trinary state of the current claim
+            current_state = self.evaluate_relevance(claim, evidence)
+            
+            # Strict AND filter optimization: Irrelevant (-1) wins over everything
+            accumulated_logic = TrinaryState(min(accumulated_logic, current_state))
+            
+            print(f"Claim {i+1} Status: {current_state.name} | Pipeline Logic: {accumulated_logic.name}")
+            
+            if accumulated_logic == TrinaryState.IRRELEVANT:
+                print("🚨 [EARLY-EXIT] Irrelevant path detected. Poisoned well. Stopping execution.")
+                return "PIPELINE_SKIPPED_IRRELEVANT"
+                
+            if current_state == TrinaryState.RELEVANT:
+                # Only spin up heavy CPU cycles if verified as actively relevant
+                result = engine.audit(claim, evidence)
+                print(f"  -> Audit Loop Result: {result.verdict} (λ mean: {result.lambda_mean:.3f})")
+            elif current_state == TrinaryState.UNKNOWN:
+                print("  -> Audit Loop Warning: Standing by for grounding data. Evaluating blindly...")
+                result = engine.audit(claim, evidence=None)
+                print(f"  -> Audit Loop Result: {result.verdict}")
+                
+        return "PIPELINE_COMPLETED"
